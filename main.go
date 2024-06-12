@@ -105,7 +105,7 @@ func NewRequest(conn net.Conn) Request {
 		}
 		log.Printf("Read line: %s", line)
 
-		if line == "\r\n" {
+		if line == CLRF {
 			break
 		}
 		if strings.HasPrefix(line, "User-Agent:") {
@@ -120,7 +120,7 @@ func NewRequest(conn net.Conn) Request {
 			s1 := strings.Split(line, " ")[0]
 			s2 := strings.Split(line, " ")[1]
 			s3 := strings.Split(line, " ")[2]
-			httpReq.Version = strings.TrimSuffix(s3, "\r\n")
+			httpReq.Version = strings.TrimSuffix(s3, CLRF)
 			httpReq.Method = s1
 			httpReq.Target = s2
 		}
@@ -144,7 +144,12 @@ func (r *Request) Parse() Response {
 				Message: "",
 			},
 		}
+	case strings.Contains(r.Target, "/echo/"):
+		return r.handleEcho()
+	case strings.Contains(r.Target, "/user-agent"):
+		return r.handleUserAgent()
 	}
+
 	return Response{
 		Version:       r.Version,
 		StatusCode:    404,
@@ -155,6 +160,41 @@ func (r *Request) Parse() Response {
 		},
 		ResponseBody: ResponseBody{
 			Message: "",
+		},
+	}
+}
+
+func (r *Request) handleUserAgent() Response {
+
+	//should check if it uses the get method and not any other HTTP method
+	str := strings.TrimSpace(r.RequestHeaders.UserAgent)
+	stringLenght := len(str)
+	return Response{
+		Version:       r.Version,
+		StatusCode:    200,
+		StatusMessage: "OK",
+		ResponseHeaders: ResponseHeaders{
+			ContentType:   "text/plain",
+			ContentLength: stringLenght,
+		},
+		ResponseBody: ResponseBody{
+			Message: str,
+		},
+	}
+}
+func (r *Request) handleEcho() Response {
+	str := strings.TrimPrefix(r.Target, "/echo/")
+	stringLenght := len(str)
+	return Response{
+		Version:       r.Version,
+		StatusCode:    200,
+		StatusMessage: "OK",
+		ResponseHeaders: ResponseHeaders{
+			ContentType:   "text/plain",
+			ContentLength: stringLenght,
+		},
+		ResponseBody: ResponseBody{
+			Message: str,
 		},
 	}
 }
@@ -172,4 +212,3 @@ func (r *Request) WriteResponse(resp Response) []byte {
 	log.Printf("Formatted response: %s\n", newResp)
 	return []byte(newResp)
 }
-
